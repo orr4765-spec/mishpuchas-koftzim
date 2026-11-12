@@ -1,0 +1,12 @@
+{
+  "name": "משפוחס קופצים",
+  "short_name": "משפוחס",
+  "start_url": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#7c5cff",
+  "theme_color": "#7c5cff",
+  "dir": "rtl",
+  "lang": "he",
+  "icons": [{ "src": "icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }]
+}
