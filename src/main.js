@@ -2,8 +2,8 @@ import './style.css';
 import { Game } from './game.js';
 import { sfx, setMuted } from './audio.js';
 import { renderPreview } from './draw.js';
-import { ITEMS, ITEM, CATEGORIES, RARITY, UNLOCKS, dailyShop, priceOf, isForSale } from './items.js';
-import { profile, save, levelInfo, owns, buy, equip, dailyLogin, finishGame, grantChampion, dayKey, canAfford, login, logout } from './store.js';
+import { ITEMS, ITEM, CATEGORIES, RARITY, UNLOCKS, dailyShop, priceOf, isCheap, WHEEL, WHEEL_EXTRA_COST, MISSION_BONUS } from './items.js';
+import { profile, save, levelInfo, owns, buy, equip, dailyLogin, finishGame, grantChampion, dayKey, canAfford, login, logout, missionState, claimMission, claimMissionBonus, wheelFree, spinWheel } from './store.js';
 import { submitScore, fetchBoard, boardId, online, previousWinner } from './leaderboard.js';
 
 const ui = document.getElementById('ui');
@@ -111,6 +111,7 @@ const screens = {
 
   home() {
     game.showMenu(profile.equipped);
+    if (profile.name) setTimeout(checkOvertaken, 1500);
     const boosts = activeBoosts();
     ui.innerHTML = `
     <div class="screen">
@@ -125,6 +126,10 @@ const screens = {
       ${boosts.length ? `<div class="chips">${boosts.map((b) => `<span class="chip boost">${b}</span>`).join('')}</div>` : ''}
       <div class="spacer"></div>
       <div class="menu">
+        <div class="row">
+          <button class="btn small extra" data-go="missions">📋 משימות${missionBadge()}</button>
+          <button class="btn small extra" data-go="wheel">🎡 גלגל מזל${wheelFree() ? '<span class="badge">!</span>' : ''}</button>
+        </div>
         <button class="btn big play" data-go="play">▶ שחק</button>
         <div class="row">
           <button class="btn shop" data-go="shop">🛒 חנות</button>
@@ -172,6 +177,7 @@ const screens = {
           <span>⭐ +${earn.xp} XP${earn.xpMult > 1 ? ' <b>x2</b>' : ''}</span>
         </div>
         ${earn.levelUp ? `<div class="levelup">⬆️ עלית לרמה ${earn.levelUp}! +${earn.levelGems} 💎</div>` : ''}
+        ${earn.missionsDone ? `<div class="levelup">📋 השלמת ${earn.missionsDone === 1 ? 'משימה' : earn.missionsDone + ' משימות'}! אספו את הפרס במסך הבית</div>` : ''}
         <div class="rank" id="rank">שומר בטבלאות…</div>
         <button class="btn big play" data-go="play">↻ עוד פעם!</button>
         <div class="row">
@@ -188,6 +194,8 @@ const screens = {
     submitScore(player(), res.score)
       .then(() => fetchBoard(boardId.day()))
       .then((r) => {
+        snapshotRivals('day', r);
+        fetchBoard(boardId.week()).then((w) => snapshotRivals('week', w)).catch(() => {});
         const el = $('#rank');
         if (!el) return;
         const i = r.rows.findIndex((x) => x.id === profile.id);
@@ -206,6 +214,10 @@ const screens = {
     let cards = [];
     if (tab === 'daily') {
       cards = dailyShop(dayKey()).map((d) => ({ it: d.item, discount: d.discount, special: d.special }));
+    } else if (tab === 'cheap') {
+      cards = ITEMS.filter(isCheap)
+        .sort((a, b) => a.coins - b.coins)
+        .map((it) => ({ it }));
     } else if (tab === 'mythic') {
       cards = ITEMS.filter((i) => i.rarity === 'mythic').map((it) => ({ it }));
     } else {
@@ -247,6 +259,7 @@ const screens = {
       ${topBar(true)}
       <div class="tabs">${CATEGORIES.map((c) => `<button class="tab ${c.id === tab ? 'on' : ''}" data-tab="${c.id}">${c.icon} ${c.name}</button>`).join('')}</div>
       ${tab === 'daily' ? `<div class="note">🔄 החנות מתחלפת בעוד ${hh}:${String(mm).padStart(2, '0')} · כל המשפחה רואה את אותם מבצעים</div>` : ''}
+      ${tab === 'cheap' ? `<div class="note">💰 פריטים שאפשר לקנות אחרי כמה משחקים בלבד</div>` : ''}
       ${tab === 'mythic' ? `<div class="note red">פריטים מיתיים לא נמכרים בכלל – רק מי שמשיג את ההישג מקבל אותם</div>` : ''}
       <div class="grid">${cards.map(card).join('')}</div>
     </div>`;
@@ -318,6 +331,102 @@ const screens = {
     ui.querySelectorAll('[data-prev]').forEach((c) => renderPreview(c, ITEM[c.dataset.prev] || ITEM.bean, 0.5));
   },
 
+  missions() {
+    const st = missionState();
+    const tierName = { easy: 'קל', medium: 'בינוני', hard: 'קשה' };
+    const reward = (m) => `${COIN} ${m.reward.coins} + 💎 ${m.reward.gems}`;
+    modal(
+      `<div class="over-title">📋 משימות היום</div>
+       <div class="muted">אותן משימות לכל המשפחה · מתחלפות בחצות</div>
+       ${st.list
+         .map(
+           (m, i) => `<div class="mission t-${m.tier}">
+             <div class="mtop"><b>${esc(m.text)}</b><span class="tier">${tierName[m.tier]}</span></div>
+             <div class="mbar"><i style="width:${(m.prog / m.n) * 100}%"></i><span>${m.prog}/${m.n}</span></div>
+             ${m.claimed
+               ? '<span class="tag on">✔ נאסף</span>'
+               : m.done
+                 ? `<button class="btn tiny green" data-claim="${i}">אסוף ${reward(m)}</button>`
+                 : `<span class="tag lock">פרס: ${reward(m)}</span>`}
+           </div>`
+         )
+         .join('')}
+       ${st.bonusReady
+         ? `<button class="btn" id="mbonus">🎉 בונוס על כל המשימות: 💎 ${MISSION_BONUS.gems}</button>`
+         : st.bonusClaimed
+           ? '<div class="levelup">🏅 סיימת את כל המשימות של היום!</div>'
+           : `<div class="hint">השלימו את שלושתן לבונוס של 💎 ${MISSION_BONUS.gems}</div>`}
+       <button class="btn small back" data-close>סגירה</button>`,
+      (m, close) => {
+        m.querySelectorAll('[data-claim]').forEach(
+          (b) =>
+            (b.onclick = () => {
+              if (!claimMission(+b.dataset.claim)) return;
+              sfx.buy();
+              close();
+              show('home');
+              screens.missions();
+            })
+        );
+        const bb = m.querySelector('#mbonus');
+        if (bb)
+          bb.onclick = () => {
+            if (!claimMissionBonus()) return;
+            sfx.buy();
+            toast(`🎉 +${MISSION_BONUS.gems} 💎`);
+            close();
+            show('home');
+          };
+      }
+    );
+  },
+
+  wheel() {
+    const n = WHEEL.length;
+    const slice = 360 / n;
+    const grad = WHEEL.map((p, i) => `${p.color} ${i * slice}deg ${(i + 1) * slice}deg`).join(',');
+    const labels = WHEEL.map((p, i) => {
+      const lab = p.coins ? `${COIN}<br>${p.label}` : p.label;
+      return `<span class="wl" style="transform:rotate(${i * slice + slice / 2}deg)"><b>${lab}</b></span>`;
+    }).join('');
+    const btnText = () => (wheelFree() ? '🎡 סובבו! (חינם היום)' : `🎡 עוד סיבוב · 💎 ${WHEEL_EXTRA_COST}`);
+    modal(
+      `<div class="over-title">🎡 גלגל המזל</div>
+       <div class="muted">סיבוב אחד חינם בכל יום</div>
+       <div class="wheel-wrap"><div class="pointer">▼</div><div class="wheel" id="wh" style="background:conic-gradient(${grad})">${labels}</div></div>
+       <div class="wres" id="wres"></div>
+       <button class="btn" id="spin">${btnText()}</button>
+       <button class="btn small back" data-close>סגירה</button>`,
+      (m) => {
+        const wh = m.querySelector('#wh');
+        let rot = 0;
+        let busy = false;
+        m.querySelector('#spin').onclick = (e) => {
+          if (busy) return;
+          const r = spinWheel();
+          if (!r.ok) return toast('😅 ' + r.reason);
+          busy = true;
+          sfx.click();
+          // מסובבים כך שמרכז הפלח שנבחר יעצור מתחת לחץ
+          const target = 360 - (r.index * slice + slice / 2);
+          rot = rot - (rot % 360) + 360 * 6 + target;
+          wh.style.transform = `rotate(${rot}deg)`;
+          m.querySelector('#wres').textContent = '';
+          setTimeout(() => {
+            busy = false;
+            sfx.buy();
+            const p = r.prize;
+            let txt = p.coins ? `${COIN} +${p.coins}` : p.gems ? `💎 +${p.gems}` : p.coinGames ? `מטבעות x2 ל-${p.coinGames} משחקים!` : p.xpMin ? `XP x2 ל-${p.xpMin} דקות!` : '';
+            if (r.box) txt = r.box.item ? `🎁 ${esc(r.box.item.name)} (${RARITY[r.box.item.rarity].name})!` : `🎁 💎 +${r.box.gems}`;
+            m.querySelector('#wres').innerHTML = 'זכית: ' + txt;
+            e.target.textContent = btnText();
+            refreshHomeBehind(m);
+          }, 4300);
+        };
+      }
+    );
+  },
+
   settings() {
     const L = levelInfo();
     modal(
@@ -350,7 +459,7 @@ const screens = {
 
 let current = '';
 function show(name, arg) {
-  if (name === 'settings') return screens.settings();
+  if (name === 'settings' || name === 'missions' || name === 'wheel') return screens[name]();
   if (name === 'logout') {
     document.querySelectorAll('.toast, .modal-wrap').forEach((el) => el.remove());
     logout();
@@ -384,6 +493,7 @@ function startupGifts() {
     unlockedModal(g.unlocked);
     if (current === 'home') show('home');
   }
+  checkOvertaken();
   // פרסים לאלופים
   previousWinner('week')
     .then((w) => {
@@ -406,6 +516,69 @@ function startupGifts() {
       }
     })
     .catch(() => {});
+}
+
+function missionBadge() {
+  const n = missionState().claimable;
+  return n ? `<span class="badge">${n}</span>` : '';
+}
+
+// מרעננים את מסך הבית שמאחורי חלון פתוח (ארנק, תגים) בלי לסגור את החלון
+function refreshHomeBehind(modalEl) {
+  if (current !== 'home') return;
+  screens.home();
+  document.body.appendChild(modalEl);
+}
+
+// ===== "עקפו אותך!" =====
+// אחרי כל משחק שומרים מי היה מתחתי בטבלה; בכניסה הבאה בודקים מי מהם עבר אותי.
+function snapshotRivals(kind, r) {
+  if (!r?.online || !profile.name) return;
+  const me = r.rows.find((x) => x.id === profile.id);
+  if (!me) return;
+  profile.rivals = profile.rivals || {};
+  profile.rivals[kind] = { key: boardId[kind](), below: r.rows.filter((x) => x.score < me.score).map((x) => x.id) };
+  save();
+}
+
+let lastRivalCheck = 0;
+async function checkOvertaken() {
+  if (!online || !profile.name || Date.now() - lastRivalCheck < 60_000) return;
+  lastRivalCheck = Date.now();
+  const who = profile.id;
+  const found = [];
+  for (const kind of ['day', 'week']) {
+    const snap = profile.rivals?.[kind];
+    if (!snap || snap.key !== boardId[kind]()) continue;
+    const r = await fetchBoard(boardId[kind]()).catch(() => null);
+    if (!r?.online || profile.id !== who) return;
+    const me = r.rows.find((x) => x.id === profile.id);
+    if (!me) continue;
+    r.rows.filter((x) => snap.below.includes(x.id) && x.score > me.score).forEach((x) => found.push({ ...x, kind, mine: me.score }));
+    snapshotRivals(kind, r);
+  }
+  // מי שעקף גם ביומית וגם בשבועית – מוצג פעם אחת
+  const uniq = [...new Map(found.map((x) => [x.id, x])).values()];
+  if (!uniq.length || profile.id !== who || current === 'play') return;
+  const kindName = { day: 'בטבלה היומית', week: 'בטבלה השבועית' };
+  sfx.fall();
+  modal(
+    `<div class="over-title">😤 עקפו אותך!</div>
+     ${uniq
+       .map(
+         (x) => `<div class="lrow"><canvas class="prev mini" data-prev="${esc(x.char || 'bean')}"></canvas>
+           <span class="nm">${esc(x.name)} ${esc(x.emote || '')}<small>עקף/ה אותך ${kindName[x.kind]}</small></span>
+           <span class="pts">${fmt(x.score)}</span></div>`
+       )
+       .join('')}
+     <div class="muted">התוצאה שלך: ${fmt(uniq[0].mine)}</div>
+     <button class="btn big play" data-close id="revenge">⚔️ לנקום!</button>
+     <button class="btn small back" data-close>אחר כך</button>`,
+    (m) => {
+      m.querySelectorAll('[data-prev]').forEach((c) => renderPreview(c, ITEM[c.dataset.prev] || ITEM.bean, 0.5));
+      m.querySelector('#revenge').addEventListener('click', () => show('play'));
+    }
+  );
 }
 
 console.log(online ? 'Firebase מחובר' : 'מצב מקומי (בלי Firebase)');

@@ -19,6 +19,10 @@ function circle(ctx, x, y, r) {
 
 const SKIN = {
   bean: '#ff9f43',
+  frog: '#6ab04c',
+  bunny: '#f5f0ff',
+  penguin: '#34495e',
+  bear: '#b9773f',
   kitty: '#f8c291',
   chef: '#ffd6a5',
   ninja: '#3d3d5c',
@@ -119,7 +123,7 @@ export function drawHero(ctx, id, x, y, t, o = {}) {
   // רגליים
   if (id !== 'ghost') {
     const step = walking ? Math.sin(t * 14) * 3 : 0;
-    const footCol = id === 'robot' ? '#636e72' : id === 'ninja' ? '#24243a' : '#2a1f3d';
+    const footCol = id === 'robot' ? '#636e72' : id === 'ninja' ? '#24243a' : id === 'penguin' ? '#f39c12' : id === 'frog' ? '#4a8a33' : '#2a1f3d';
     for (const [fx, d] of [[-5, step], [5, -step]]) {
       ctx.beginPath();
       ctx.ellipse(fx + d, -3, 5, 3.2, 0, 0, Math.PI * 2);
@@ -156,6 +160,24 @@ export function drawHero(ctx, id, x, y, t, o = {}) {
   }
 
   // בטן
+  if (id === 'penguin') {
+    ctx.beginPath();
+    ctx.ellipse(3, by + 18, 9, 11, 0, 0, Math.PI * 2);
+    ctx.fillStyle = '#fff';
+    ctx.fill();
+  }
+  if (id === 'bear') {
+    ctx.beginPath();
+    ctx.ellipse(7, by + 18, 6, 4.5, 0, 0, Math.PI * 2);
+    ctx.fillStyle = '#e8c39e';
+    ctx.fill();
+  }
+  if (id === 'frog') {
+    ctx.beginPath();
+    ctx.ellipse(3, by + 22, 7, 5, 0, 0, Math.PI * 2);
+    ctx.fillStyle = '#badc58';
+    ctx.fill();
+  }
   if (id === 'dragon' || id === 'kitty') {
     ctx.beginPath();
     ctx.ellipse(3, by + 21, 7, 6, 0, 0, Math.PI * 2);
@@ -194,6 +216,7 @@ export function drawHero(ctx, id, x, y, t, o = {}) {
     const blink = Math.sin(t * 1.3 + (o.seed || 0)) > 0.985;
     for (const [ex, er] of [[2, 4.3], [9, 3.8]]) {
       if (id === 'pirate' && ex === 9) continue;
+      if (id === 'frog') continue; // לצפרדע העיניים על הבליטות למעלה
       if (blink) {
         ctx.beginPath();
         ctx.moveTo(ex - er, ey);
@@ -251,8 +274,56 @@ export function drawHero(ctx, id, x, y, t, o = {}) {
     ctx.stroke();
   }
 
+  if (id === 'penguin') {
+    // מקור
+    ctx.beginPath();
+    ctx.moveTo(10, ey + 3);
+    ctx.lineTo(18, ey + 5.5);
+    ctx.lineTo(10, ey + 8);
+    ctx.closePath();
+    fillStroke(ctx, '#f39c12', 1.4);
+  }
+  if (id === 'bear') {
+    circle(ctx, 8, by + 16.5, 1.8);
+    ctx.fillStyle = OL;
+    ctx.fill();
+  }
+
   // על הראש
   const top = by;
+  if (id === 'frog') {
+    for (const ex of [-6, 6]) {
+      circle(ctx, ex, top + 1, 5.5);
+      fillStroke(ctx, SKIN.frog, 2);
+      circle(ctx, ex + 1, top + 0.5, 2.2);
+      ctx.fillStyle = OL;
+      ctx.fill();
+    }
+  }
+  if (id === 'bunny') {
+    for (const [ex, r] of [[-5, -0.15], [5, 0.2]]) {
+      ctx.save();
+      ctx.translate(ex, top + 2);
+      ctx.rotate(r + Math.sin(t * 3 + ex) * 0.05);
+      ctx.beginPath();
+      ctx.ellipse(0, -9, 4.2, 11, 0, 0, Math.PI * 2);
+      fillStroke(ctx, SKIN.bunny, 2);
+      ctx.beginPath();
+      ctx.ellipse(0, -9, 2, 7.5, 0, 0, Math.PI * 2);
+      ctx.fillStyle = '#ffb8d1';
+      ctx.fill();
+      ctx.restore();
+    }
+  }
+  if (id === 'bear') {
+    for (const ex of [-9, 8]) {
+      circle(ctx, ex, top + 3, 5);
+      fillStroke(ctx, SKIN.bear, 2);
+      circle(ctx, ex, top + 3, 2.4);
+      ctx.fillStyle = '#e8c39e';
+      ctx.fill();
+    }
+  }
   if (id === 'kitty') {
     for (const ex of [-7, 6]) {
       ctx.beginPath();
@@ -388,6 +459,9 @@ export function drawRope(ctx, id, len, t) {
   if (id === 'wood') body('#8d5a3b');
   else if (id === 'red') body('#e74c3c');
   else if (id === 'mint') body('#55efc4');
+  else if (id === 'blue') body('#3fa9ff');
+  else if (id === 'yellow') body('#ffd32a');
+  else if (id === 'pink') body('#ff8ccf');
   else if (id === 'rainbow' || id === 'candy') {
     const cols = id === 'rainbow' ? ['#ff6b6b', '#feca57', '#1dd1a1', '#48dbfb', '#a55eea'] : ['#ff4757', '#fff'];
     const seg = id === 'rainbow' ? 8 : 6;
@@ -463,6 +537,7 @@ export function spawnTrail(list, id, x, y) {
   const r = Math.random;
   const p = { x: x - 10 + r() * 4, y: y - 4 - r() * 10, vx: -10 - r() * 15, vy: -10 - r() * 20, life: 0, max: 0.6 + r() * 0.4, kind: id, size: 3 + r() * 3 };
   if (id === 'dust') Object.assign(p, { y: y - 2, vy: -5 - r() * 8, color: '#d1ccc0' });
+  if (id === 'bubbles') Object.assign(p, { vy: -25 - r() * 20, color: 'rgba(160,231,255,0.85)', size: 2 + r() * 3 });
   if (id === 'hearts') p.color = ['#ff6b81', '#ff4757', '#ff9ff3'][Math.floor(r() * 3)];
   if (id === 'stars') p.color = ['#feca57', '#fff200'][Math.floor(r() * 2)];
   if (id === 'sparkles') p.color = ['#fff', '#7efff5', '#fff3a3'][Math.floor(r() * 3)];
@@ -741,8 +816,8 @@ export function renderPreview(canvas, it, t = 0) {
     ctx.restore();
   } else if (it.cat === 'trail') {
     drawHero(ctx, 'bean', 44, 56, t, { walking: true });
-    const glyph = { none: '–', dust: '•', hearts: '♥', stars: '★', sparkles: '✦', fire: '🔥', rainbowtrail: '' }[it.id];
-    const cols = { dust: '#b2aaa0', hearts: '#ff4757', stars: '#feca57', sparkles: '#48dbfb', fire: '#ff9f1a' };
+    const glyph = { none: '–', dust: '•', bubbles: '○', hearts: '♥', stars: '★', sparkles: '✦', fire: '🔥', rainbowtrail: '' }[it.id];
+    const cols = { dust: '#b2aaa0', bubbles: '#3fa9ff', hearts: '#ff4757', stars: '#feca57', sparkles: '#48dbfb', fire: '#ff9f1a' };
     for (let i = 0; i < 4; i++) {
       ctx.globalAlpha = 1 - i * 0.2;
       ctx.fillStyle = it.id === 'rainbowtrail' ? `hsl(${i * 70},90%,60%)` : cols[it.id] || '#888';

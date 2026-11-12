@@ -11,6 +11,7 @@ export const RARITY = {
 
 export const CATEGORIES = [
   { id: 'daily', name: 'מבצעי היום', icon: '🔥' },
+  { id: 'cheap', name: 'בהישג יד', icon: '💰' },
   { id: 'char', name: 'דמויות', icon: '🧸' },
   { id: 'rope', name: 'חבלים', icon: '🧶' },
   { id: 'trail', name: 'שבילים', icon: '✨' },
@@ -34,6 +35,10 @@ export const UNLOCKS = {
 export const ITEMS = [
   // דמויות
   { id: 'bean', cat: 'char', name: 'שעועית', rarity: 'common', free: true },
+  { id: 'frog', cat: 'char', name: 'צפרדע', rarity: 'common', coins: 120 },
+  { id: 'bunny', cat: 'char', name: 'ארנבון', rarity: 'common', coins: 150 },
+  { id: 'penguin', cat: 'char', name: 'פינגווין', rarity: 'common', coins: 180 },
+  { id: 'bear', cat: 'char', name: 'דובי', rarity: 'common', coins: 200 },
   { id: 'kitty', cat: 'char', name: 'חתלתול', rarity: 'common', coins: 250 },
   { id: 'chef', cat: 'char', name: 'שף', rarity: 'common', coins: 300 },
   { id: 'ninja', cat: 'char', name: 'נינג׳ה', rarity: 'rare', coins: 900 },
@@ -49,6 +54,9 @@ export const ITEMS = [
 
   // חבלים
   { id: 'wood', cat: 'rope', name: 'מקל עץ', rarity: 'common', free: true },
+  { id: 'blue', cat: 'rope', name: 'חבל כחול', rarity: 'common', coins: 50 },
+  { id: 'yellow', cat: 'rope', name: 'חבל צהוב', rarity: 'common', coins: 50 },
+  { id: 'pink', cat: 'rope', name: 'חבל ורוד', rarity: 'common', coins: 70 },
   { id: 'red', cat: 'rope', name: 'חבל אדום', rarity: 'common', coins: 100 },
   { id: 'mint', cat: 'rope', name: 'חבל מנטה', rarity: 'common', coins: 150 },
   { id: 'rainbow', cat: 'rope', name: 'קשת בענן', rarity: 'rare', coins: 800 },
@@ -60,6 +68,7 @@ export const ITEMS = [
 
   // שבילים (מה שנשאר מאחורי הדמות כשהיא הולכת)
   { id: 'none', cat: 'trail', name: 'בלי שביל', rarity: 'common', free: true },
+  { id: 'bubbles', cat: 'trail', name: 'בועות', rarity: 'common', coins: 140 },
   { id: 'dust', cat: 'trail', name: 'ענן אבק', rarity: 'common', coins: 200 },
   { id: 'hearts', cat: 'trail', name: 'לבבות', rarity: 'rare', coins: 900 },
   { id: 'stars', cat: 'trail', name: 'כוכבים', rarity: 'rare', coins: 1100 },
@@ -78,6 +87,11 @@ export const ITEMS = [
 
   // אימוג'י שמופיע ליד השם בטבלה
   { id: 'e-none', cat: 'emote', name: 'בלי', rarity: 'common', free: true, emoji: '' },
+  { id: 'e-like', cat: 'emote', name: 'לייק', rarity: 'common', coins: 30, emoji: '👍' },
+  { id: 'e-lol', cat: 'emote', name: 'צוחק', rarity: 'common', coins: 40, emoji: '😂' },
+  { id: 'e-heart', cat: 'emote', name: 'לב', rarity: 'common', coins: 50, emoji: '❤️' },
+  { id: 'e-crazy', cat: 'emote', name: 'משוגע', rarity: 'common', coins: 60, emoji: '🤪' },
+  { id: 'e-chick', cat: 'emote', name: 'אפרוח', rarity: 'common', coins: 80, emoji: '🐣' },
   { id: 'e-fire', cat: 'emote', name: 'אש', rarity: 'common', coins: 120, emoji: '🔥' },
   { id: 'e-cool', cat: 'emote', name: 'מגניב', rarity: 'common', coins: 150, emoji: '😎' },
   { id: 'e-rocket', cat: 'emote', name: 'טיל', rarity: 'rare', coins: 700, emoji: '🚀' },
@@ -87,6 +101,7 @@ export const ITEMS = [
   { id: 'e-trophy', cat: 'emote', name: 'גביע האלופים', rarity: 'mythic', unlock: 'champion', emoji: '🏆' },
 
   // בוסטים כלכליים – משפיעים רק על כמה מטבעות/יהלומים/XP מקבלים, לא על המשחק
+  { id: 'b-gems5', cat: 'boost', name: '5 יהלומים', desc: 'החלפת מטבעות ביהלומים', rarity: 'common', coins: 350, emoji: '💎' },
   { id: 'b-coins', cat: 'boost', name: 'מטבעות x2', desc: 'ל-5 משחקים', rarity: 'common', coins: 150, emoji: '🪙' },
   { id: 'b-xp', cat: 'boost', name: 'XP x2', desc: 'לשעה אחת', rarity: 'rare', gems: 12, emoji: '⭐' },
   { id: 'b-luck', cat: 'boost', name: 'קסם מזל', desc: 'יותר יהלומים ל-10 משחקים', rarity: 'rare', gems: 15, emoji: '🍀' },
@@ -95,11 +110,76 @@ export const ITEMS = [
 
 export const ITEM = Object.fromEntries(ITEMS.map((i) => [i.id, i]));
 
+// "בהישג יד": כל מה שעולה עד 200 מטבעות – אפשר להשיג אחרי כמה משחקים
+export const isCheap = (it) => !!it.coins && it.coins <= 200 && it.cat !== 'boost';
+
+// ===== משימות יומיות – אותן משימות לכל המשפחה בכל יום =====
+const MISSION_POOL = {
+  easy: [
+    { t: 'score', n: 8 },
+    { t: 'games', n: 2 },
+    { t: 'jumps', n: 15 },
+    { t: 'perfects', n: 1 },
+  ],
+  medium: [
+    { t: 'score', n: 15 },
+    { t: 'perfects', n: 3 },
+    { t: 'jumps', n: 40 },
+    { t: 'gems', n: 1 },
+    { t: 'games', n: 4 },
+  ],
+  hard: [
+    { t: 'score', n: 25 },
+    { t: 'perfects', n: 5 },
+    { t: 'run', n: 3 },
+    { t: 'gems', n: 2 },
+    { t: 'jumps', n: 80 },
+  ],
+};
+export const MISSION_REWARD = {
+  easy: { coins: 30, gems: 2 },
+  medium: { coins: 60, gems: 4 },
+  hard: { coins: 100, gems: 8 },
+};
+export const MISSION_BONUS = { gems: 5 };
+const MISSION_TEXT = {
+  score: (n) => `הגיעו ל-${n} נקודות במשחק אחד`,
+  games: (n) => `שחקו ${n} משחקים`,
+  jumps: (n) => `${n} קפיצות מוצלחות היום`,
+  perfects: (n) => (n === 1 ? 'נחיתה מושלמת אחת' : `${n} נחיתות מושלמות במשחק אחד`),
+  gems: (n) => (n === 1 ? 'אספו יהלום מעמוד' : `אספו ${n} יהלומים מעמודים`),
+  run: (n) => `רצף של ${n} נחיתות מושלמות`,
+};
+// "max" = השיא במשחק אחד, "sum" = מצטבר במשך היום
+export const MISSION_KIND = { score: 'max', perfects: 'max', run: 'max', games: 'sum', jumps: 'sum', gems: 'sum' };
+
+export function dailyMissions(dayKey) {
+  const rnd = seeded('missions-' + dayKey);
+  return ['easy', 'medium', 'hard'].map((tier) => {
+    const pool = MISSION_POOL[tier];
+    const m = pool[Math.floor(rnd() * pool.length)];
+    return { ...m, tier, text: MISSION_TEXT[m.t](m.n), reward: MISSION_REWARD[tier] };
+  });
+}
+
+// ===== גלגל המזל היומי =====
+export const WHEEL = [
+  { label: '20', coins: 20, w: 22, color: '#ffd32a' },
+  { label: '3💎', gems: 3, w: 18, color: '#48dbfb' },
+  { label: '50', coins: 50, w: 18, color: '#ff9f43' },
+  { label: '⭐x2', xpMin: 30, w: 8, color: '#a55eea' },
+  { label: '100', coins: 100, w: 10, color: '#2ed573' },
+  { label: '10💎', gems: 10, w: 8, color: '#1e90ff' },
+  { label: 'x2', coinGames: 3, w: 12, color: '#ff6b81' },
+  { label: '🎁', box: true, w: 4, color: '#ff4757' },
+];
+export const WHEEL_EXTRA_COST = 5; // סיבוב נוסף באותו יום עולה 5 יהלומים
+
 export const isConsumable = (it) => it.cat === 'boost';
 export const isForSale = (it) => !it.free && !it.unlock && !isConsumable(it);
 
 // מספר אקראי קבוע לפי מחרוזת – כך כל המשפחה רואה את אותה חנות יומית
-function seeded(str) {
+export function seeded(str) {
   let h = 2166136261;
   for (const ch of str) h = Math.imul(h ^ ch.charCodeAt(0), 16777619);
   return () => {

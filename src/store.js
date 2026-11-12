@@ -1,5 +1,5 @@
 // הפרופיל של השחקן – נשמר בטלפון (localStorage): מטבעות, יהלומים, XP, פריטים ובוסטים.
-import { ITEMS, ITEM, priceOf, RARITY } from './items.js';
+import { ITEMS, ITEM, priceOf, RARITY, dailyMissions, MISSION_KIND, MISSION_BONUS, WHEEL, WHEEL_EXTRA_COST } from './items.js';
 
 const KEY = 'mishpuchas-profile';
 
@@ -36,6 +36,9 @@ function fresh() {
     championWeek: '',
     dayWinClaimed: '',
     muted: false,
+    missions: { day: '', prog: [0, 0, 0], claimed: [false, false, false], bonus: false },
+    wheelDay: '',
+    rivals: {},
   };
 }
 
@@ -140,6 +143,7 @@ function useBoost(it) {
   if (it.id === 'b-xp') b.xpUntil = Math.max(Date.now(), b.xpUntil) + 3600_000;
   if (it.id === 'b-luck') b.luckGames += 10;
   if (it.id === 'b-box') return { ok: true, box: openBox() };
+  if (it.id === 'b-gems5') profile.gems += 5;
   return { ok: true };
 }
 
@@ -207,8 +211,9 @@ export function finishGame({ score, perfects, bestPerfectRun, gems, jumps }) {
   const levelGems = after > before ? (after - before) * 5 : 0;
   profile.gems += levelGems;
   const unlocked = checkUnlocks();
+  const missionsDone = trackMissions({ score, perfects, bestPerfectRun, gems, jumps });
   save();
-  return { coins, gems, xp, coinMult, xpMult, newBest, levelUp: after > before ? after : 0, levelGems, unlocked };
+  return { coins, gems, xp, coinMult, xpMult, newBest, levelUp: after > before ? after : 0, levelGems, unlocked, missionsDone };
 }
 
 // פריטים מיתיים שנפתחים מהישגים
@@ -245,3 +250,75 @@ export function rarityColor(it) {
   return RARITY[it.rarity].color;
 }
 export { ITEM };
+
+// ===== משימות יומיות =====
+function ensureMissions() {
+  const today = dayKey();
+  const m = profile.missions || {};
+  if (m.day !== today) profile.missions = { day: today, prog: [0, 0, 0], claimed: [false, false, false], bonus: false };
+  return profile.missions;
+}
+
+export function missionState() {
+  const m = ensureMissions();
+  const list = dailyMissions(m.day).map((x, i) => ({ ...x, prog: Math.min(m.prog[i], x.n), done: m.prog[i] >= x.n, claimed: m.claimed[i] }));
+  const allClaimed = list.every((x) => x.claimed);
+  return { list, bonusReady: allClaimed && !m.bonus, bonusClaimed: m.bonus, claimable: list.filter((x) => x.done && !x.claimed).length + (allClaimed && !m.bonus ? 1 : 0) };
+}
+
+// מעדכן התקדמות אחרי משחק; מחזיר כמה משימות הושלמו עכשיו
+function trackMissions(res) {
+  const m = ensureMissions();
+  const value = { score: res.score, perfects: res.perfects, run: res.bestPerfectRun, games: 1, jumps: res.jumps, gems: res.gems };
+  let newly = 0;
+  dailyMissions(m.day).forEach((x, i) => {
+    const before = m.prog[i];
+    m.prog[i] = MISSION_KIND[x.t] === 'max' ? Math.max(before, value[x.t]) : before + value[x.t];
+    if (before < x.n && m.prog[i] >= x.n) newly++;
+  });
+  return newly;
+}
+
+export function claimMission(i) {
+  const st = missionState();
+  const x = st.list[i];
+  if (!x || !x.done || x.claimed) return null;
+  profile.missions.claimed[i] = true;
+  profile.coins += x.reward.coins;
+  profile.gems += x.reward.gems;
+  save();
+  return x.reward;
+}
+
+export function claimMissionBonus() {
+  if (!missionState().bonusReady) return null;
+  profile.missions.bonus = true;
+  profile.gems += MISSION_BONUS.gems;
+  save();
+  return MISSION_BONUS;
+}
+
+// ===== גלגל המזל =====
+export const wheelFree = () => profile.wheelDay !== dayKey();
+
+export function spinWheel() {
+  const free = wheelFree();
+  if (!free) {
+    if (profile.gems < WHEEL_EXTRA_COST) return { ok: false, reason: 'אין מספיק יהלומים לסיבוב נוסף' };
+    profile.gems -= WHEEL_EXTRA_COST;
+  }
+  profile.wheelDay = dayKey();
+  const total = WHEEL.reduce((a, p) => a + p.w, 0);
+  let r = Math.random() * total;
+  let index = 0;
+  while (r >= WHEEL[index].w) r -= WHEEL[index++].w;
+  const p = WHEEL[index];
+  const out = { ok: true, index, prize: p };
+  if (p.coins) profile.coins += p.coins;
+  if (p.gems) profile.gems += p.gems;
+  if (p.coinGames) profile.boosts.coinGames += p.coinGames;
+  if (p.xpMin) profile.boosts.xpUntil = Math.max(Date.now(), profile.boosts.xpUntil) + p.xpMin * 60_000;
+  if (p.box) out.box = openBox();
+  save();
+  return out;
+}
