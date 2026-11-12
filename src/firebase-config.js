@@ -1,11 +1,10 @@
-// ההגדרות של Firebase – מדביקים כאן את מה ש-Firebase נותן (ראו FIREBASE-SETUP.md).
-// כל עוד apiKey ריק, המשחק עובד במצב מקומי: הטבלאות מציגות רק את התוצאות מהטלפון הזה.
-// זה בסדר שהערכים האלה ציבוריים – ההגנה היא בכללי האבטחה של Firestore.
+// ההגדרות של Firebase (פרויקט mishpuchas). ה-apiKey של Firebase לאתרים ציבורי מטבעו –
+// מה שמגן על הנתונים הם הכללים ב-firestore.rules.
 export const firebaseConfig = {
-  apiKey: '',
-  authDomain: '',
-  projectId: '',
-  storageBucket: '',
-  messagingSenderId: '',
-  appId: '',
+  apiKey: 'AIzaSyBxkXeC3MPk8tRxIQHji72UfHW8Nhd2OmA',
+  authDomain: 'mishpuchas-9942b.firebaseapp.com',
+  projectId: 'mishpuchas-9942b',
+  storageBucket: 'mishpuchas-9942b.firebasestorage.app',
+  messagingSenderId: '878311312377',
+  appId: '1:878311312377:web:3132aaf5661048fda50b28',
 };
