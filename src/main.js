@@ -3,7 +3,7 @@ import { Game } from './game.js';
 import { sfx, setMuted } from './audio.js';
 import { renderPreview } from './draw.js';
 import { ITEMS, ITEM, CATEGORIES, RARITY, UNLOCKS, dailyShop, priceOf, isForSale } from './items.js';
-import { profile, save, levelInfo, owns, buy, equip, dailyLogin, finishGame, grantChampion, dayKey, canAfford } from './store.js';
+import { profile, save, levelInfo, owns, buy, equip, dailyLogin, finishGame, grantChampion, dayKey, canAfford, listPlayers, switchPlayer } from './store.js';
 import { submitScore, fetchBoard, boardId, online, previousWinner } from './leaderboard.js';
 
 const ui = document.getElementById('ui');
@@ -89,6 +89,7 @@ const screens = {
         <input id="nm" maxlength="14" placeholder="למשל: סבתא רחל" value="${esc(profile.name)}" autocomplete="off" />
         <p class="hint">השם יופיע בטבלאות של כל המשפחה</p>
         <button class="btn big" id="go">יאללה, מתחילים!</button>
+        ${listPlayers().length ? `<button class="btn small back" data-go="players">👥 בחירת שחקן קיים</button>` : ''}
       </div>
     </div>`;
     const input = $('#nm');
@@ -114,6 +115,7 @@ const screens = {
       ${topBar()}
       <h1 class="logo small">משפוחס<br><span>קופצים</span></h1>
       <div class="hello">היי ${esc(profile.name)} ${ITEM[profile.equipped.emote]?.emoji || '👋'}</div>
+      <button class="btn small switch" data-go="players">👥 לא ${esc(profile.name)}? החלף שחקן</button>
       <div class="chips">
         <span class="chip">🏅 שיא: ${fmt(profile.stats.best)}</span>
         <span class="chip">🔥 רצף: ${profile.streak.count} ימים</span>
@@ -314,6 +316,38 @@ const screens = {
     ui.querySelectorAll('[data-prev]').forEach((c) => renderPreview(c, ITEM[c.dataset.prev] || ITEM.bean, 0.5));
   },
 
+  players() {
+    const list = listPlayers();
+    modal(
+      `<div class="over-title">👥 מי משחק?</div>
+       <div class="plist">
+         ${list
+           .map(
+             (p) => `<button class="lrow pbtn ${p.id === profile.id ? 'me' : ''}" data-pid="${p.id}">
+               <canvas class="prev mini" data-prev="${esc(p.char)}"></canvas>
+               <span class="nm">${esc(p.name)}<small>רמה ${levelInfo(p.xp).level} · שיא ${fmt(p.best)}</small></span>
+               <span class="pts">${p.id === profile.id ? '✔' : '←'}</span>
+             </button>`
+           )
+           .join('')}
+       </div>
+       <button class="btn" id="newP">➕ שחקן חדש</button>
+       <p class="hint">לכל שחקן יש מטבעות, סקינים ושיאים משלו</p>`,
+      (m, close) => {
+        m.querySelectorAll('[data-prev]').forEach((c) => renderPreview(c, ITEM[c.dataset.prev] || ITEM.bean, 0.5));
+        m.querySelectorAll('[data-pid]').forEach(
+          (b) =>
+            (b.onclick = () => {
+              sfx.click();
+              if (b.dataset.pid === profile.id) return close();
+              switchPlayer(b.dataset.pid);
+            })
+        );
+        m.querySelector('#newP').onclick = () => switchPlayer(null);
+      }
+    );
+  },
+
   settings() {
     const L = levelInfo();
     modal(
@@ -350,7 +384,7 @@ const screens = {
 
 let current = '';
 function show(name, arg) {
-  if (name === 'settings') return screens.settings();
+  if (name === 'settings' || name === 'players') return screens[name]();
   current = name;
   screens[name](arg);
 }
