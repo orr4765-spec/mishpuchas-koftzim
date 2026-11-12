@@ -39,8 +39,8 @@ function fresh() {
   };
 }
 
-// כמה שחקנים על אותו מכשיר: כל שחקן נשמר בנפרד, ו-ACTIVE זוכר מי משחק עכשיו.
-const ACTIVE = 'mishpuchas-active';
+// כמה שחקנים על אותו מכשיר: כל שחקן נשמר בנפרד לפי מזהה.
+// אין כניסה אוטומטית – בכל פתיחה מקלידים שם (login), ואם השם כבר שיחק כאן ממשיכים ממנו.
 const pkey = (id) => 'mishpuchas-p-' + id;
 const read = (k) => {
   try {
@@ -54,42 +54,50 @@ const read = (k) => {
 const legacy = read(KEY);
 if (legacy?.id) {
   localStorage.setItem(pkey(legacy.id), JSON.stringify(legacy));
-  if (!localStorage.getItem(ACTIVE)) localStorage.setItem(ACTIVE, legacy.id);
   localStorage.removeItem(KEY);
 }
+localStorage.removeItem('mishpuchas-active'); // מגרסה קודמת, כבר לא בשימוש
 
-export const profile = (() => {
-  const p = read(pkey(localStorage.getItem(ACTIVE)));
-  if (p && p.id) {
-    const base = fresh();
-    return { ...base, ...p, equipped: { ...base.equipped, ...p.equipped }, boosts: { ...base.boosts, ...p.boosts }, stats: { ...base.stats, ...p.stats }, streak: { ...base.streak, ...p.streak } };
-  }
-  return fresh();
-})();
-
-export function save() {
-  localStorage.setItem(pkey(profile.id), JSON.stringify(profile));
-  localStorage.setItem(ACTIVE, profile.id);
+function hydrate(p) {
+  const base = fresh();
+  return { ...base, ...p, equipped: { ...base.equipped, ...p.equipped }, boosts: { ...base.boosts, ...p.boosts }, stats: { ...base.stats, ...p.stats }, streak: { ...base.streak, ...p.streak } };
 }
 
-// כל השחקנים שנשמרו במכשיר הזה (רק כאלה שכבר בחרו שם)
-export function listPlayers() {
-  const out = [];
+// מתחילים תמיד בלי שחקן – מסך השם יחליט מי משחק
+export const profile = fresh();
+
+export function save() {
+  if (profile.name) localStorage.setItem(pkey(profile.id), JSON.stringify(profile));
+}
+
+const norm = (s) => s.trim().replace(/s+/g, ' ').toLowerCase();
+
+function findByName(name) {
   for (let i = 0; i < localStorage.length; i++) {
     const k = localStorage.key(i);
     if (!k.startsWith('mishpuchas-p-')) continue;
     const p = read(k);
-    if (p?.id && p.name) out.push({ id: p.id, name: p.name, best: p.stats?.best || 0, xp: p.xp || 0, char: p.equipped?.char || 'bean' });
+    if (p?.id && p.name && norm(p.name) === norm(name)) return p;
   }
-  return out.sort((a, b) => a.name.localeCompare(b.name, 'he'));
+  return null;
 }
 
-// מחליפים שחקן וטוענים מחדש (הכי פשוט ובטוח – כל המשחק מתחיל נקי עם הפרופיל החדש)
-export function switchPlayer(id) {
-  if (profile.name) save();
-  if (id) localStorage.setItem(ACTIVE, id);
-  else localStorage.removeItem(ACTIVE); // שחקן חדש → מסך בחירת שם
-  location.reload();
+// כניסה לפי שם: שחקן קיים במכשיר → ממשיכים ממנו, אחרת נוצר שחקן חדש. מחזיר true אם היה קיים.
+export function login(name) {
+  save();
+  const found = findByName(name);
+  const next = found ? hydrate(found) : { ...fresh(), name: name.trim().replace(/s+/g, ' ') };
+  for (const k of Object.keys(profile)) delete profile[k];
+  Object.assign(profile, next);
+  save();
+  return !!found;
+}
+
+// יציאה: שומרים וחוזרים למצב "אין שחקן"
+export function logout() {
+  save();
+  for (const k of Object.keys(profile)) delete profile[k];
+  Object.assign(profile, fresh());
 }
 
 // רמות: לרמה n צריך 100·n XP נוספים (רמה 2 = 100, רמה 3 = 300, רמה 50 ≈ 122,500)
